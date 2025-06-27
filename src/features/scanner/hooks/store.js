@@ -4,8 +4,8 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 
 /**
- * @typedef {'scanNext' | 'scanZone'} ScanMode
- * @typedef {'' | 'rdm' | 'custom'} ScannerType
+ * @typedef {'scanNext' | 'scanZone' | 'scanQuest'} ScanMode
+ * @typedef {'' | 'mad' | 'rdm' | 'custom'} ScannerType
  * @typedef {{
  *   scannerType: ScannerType,
  *   showScanCount: boolean,
@@ -22,6 +22,7 @@ import { createJSONStorage, persist } from 'zustand/middleware'
  * @typedef {{
  *  scanNextMode: '' | 'setLocation' | 'sendCoords' | 'loading' | 'confirmed' | 'error',
  *  scanZoneMode: UseScanStore['scanNextMode']
+ *  scanQuestMode: UseScanStore['scanNextMode']
  *  queue: 'init' | '...' | number,
  *  scanLocation: [number, number],
  *  scanCoords: [number, number][],
@@ -40,6 +41,7 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 export const useScanStore = create((set) => ({
   scanNextMode: '',
   scanZoneMode: '',
+  scanQuestMode: '',
   queue: 'init',
   scanLocation: [0, 0],
   scanCoords: [],
@@ -57,7 +59,9 @@ export const useScanStore = create((set) => ({
 export const useScannerSessionStorage = create(
   persist(
     () => ({
-      cooldown: 0,
+      scanNext: 0,
+      scanZone: 0,
+      scanQuest: 0,
     }),
     {
       name: 'scanner',

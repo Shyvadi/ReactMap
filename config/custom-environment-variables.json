@@ -791,6 +791,10 @@
         "__name": "CLIENT_SIDE_OPTIONS_POKESTOPS_CUSTOM_RANGE",
         "__format": "number"
       },
+      "madQuestText": {
+        "__name": "CLIENT_SIDE_OPTIONS_POKESTOPS_MAD_QUEST_TEXT",
+        "__format": "boolean"
+      },
       "hasQuestIndicator": {
         "__name": "CLIENT_SIDE_OPTIONS_POKESTOPS_HAS_QUEST_INDICATOR",
         "__format": "boolean"
@@ -1402,6 +1406,11 @@
         "__name": "SCANNER_BACKEND_CONFIG_SEND_TELEGRAM_MESSAGE",
         "__format": "boolean"
       }
+    },
+    "questApi": {
+      "endpoint": "SCANNER_QUEST_API_ENDPOINT",
+      "username": "SCANNER_QUEST_API_USERNAME",
+      "password": "SCANNER_QUEST_API_PASSWORD"
     },
     "scanNext": {
       "enabled": {

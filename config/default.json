@@ -368,6 +368,7 @@
       "interactionRanges": false,
       "lureRange": false,
       "customRange": 0,
+      "madQuestText": false,
       "hasQuestIndicator": true,
       "showArBadge": false,
       "enablePokestopPopupCoords": false,
@@ -477,7 +478,7 @@
       "enabled": false
     },
     "gyms": {
-      "enabled": true,
+      "enabled": false,
       "allGyms": true,
       "levels": "all",
       "exEligible": false,
@@ -501,8 +502,8 @@
     "pokestops": {
       "enabled": false,
       "levels": "all",
-      "lures": true,
-      "quests": true,
+      "lures": false,
+      "quests": false,
       "eventStops": false,
       "showcasePokemon": true,
       "questSet": "both",
@@ -555,7 +556,7 @@
       "enabled": false
     },
     "routes": {
-      "enabled": true
+      "enabled": false
     },
     "scanAreas": {
       "enabled": false
@@ -605,7 +606,7 @@
   },
   "scanner": {
     "backendConfig": {
-      "platform": "rdm/dragonite/custom",
+      "platform": "rdm/mad/dragonite/custom",
       "apiEndpoint": "http://ip:port/api/",
       "headers": [],
       "apiUsername": "username",
@@ -613,6 +614,11 @@
       "queueRefreshInterval": 5,
       "sendDiscordMessage": true,
       "sendTelegramMessage": true
+    },
+    "questApi": {
+      "endpoint": "",
+      "username": "",
+      "password": ""
     },
     "scanNext": {
       "enabled": false,
@@ -654,6 +660,15 @@
       "discordRoles": [],
       "local": [],
       "telegramGroups": []
+    },
+    "scanQuest": {
+      "enabled": false,
+      "showScanQueue": true,
+      "userCooldownSeconds": 7200,
+      "scanQuestAreaRestriction": [],
+      "discordRoles": [],
+      "local": [],
+      "telegramGroups": []
     }
   },
   "webhooks": [],
@@ -667,6 +682,7 @@
         "logChannelHidePii": false,
         "scanNextLogChannelId": "",
         "scanZoneLogChannelId": "",
+        "scanQuestLogChannelId": "",
         "eventLogChannelId": "",
         "presence": "Map Status: Online",
         "presenceType": 3,
@@ -704,6 +720,7 @@
         "logGroupId": "",
         "scanNextLogGroupId": "",
         "scanZoneLogGroupId": "",
+        "scanQuestLogGroupId": "",
         "eventLogGroupId": "",
         "enabled": false,
         "botToken": "",
@@ -892,13 +909,13 @@
     },
     {
       "name": "OSM",
-      "attribution": "Map data Â© <a href='https://www.openstreetmap.org'>OpenStreetMap</a> contributors",
+      "attribution": "Map data Ã‚Â© <a href='https://www.openstreetmap.org'>OpenStreetMap</a> contributors",
       "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
       "style": "light"
     },
     {
       "name": "Dark Matter",
-      "attribution": "Â© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors Â© <a href='https://carto.com/attributions'>CARTO</a>",
+      "attribution": "Ã‚Â© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors Ã‚Â© <a href='https://carto.com/attributions'>CARTO</a>",
       "url": "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
       "style": "dark"
     },

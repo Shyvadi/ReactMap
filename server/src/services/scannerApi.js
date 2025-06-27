@@ -9,7 +9,11 @@ const { state } = require('./state')
 const scannerQueue = {
   scanNext: {},
   scanZone: {},
+  scanQuest: {},
 }
+
+const questScanQueue = []
+let questProcessing = false
 
 /**
  *
@@ -25,7 +29,7 @@ async function scannerApi(
   data = null,
   user = { id: 0, username: 'a visitor' },
 ) {
-  const { backendConfig, ...scanModes } = config.getSafe('scanner')
+  const { backendConfig, questApi, ...scanModes } = config.getSafe('scanner')
 
   const scanNextOptions = {
     routes: scanModes.scanNext.routes,
@@ -34,12 +38,108 @@ async function scannerApi(
     gmf: scanModes.scanNext.gmf,
   }
 
-  const scanZoneOptions = {
-    routes: scanModes.scanZone.routes,
-    showcases: scanModes.scanZone.showcases,
-    pokemon: scanModes.scanZone.pokemon,
-    gmf: scanModes.scanZone.gmf,
+const scanZoneOptions = {
+  routes: scanModes.scanZone.routes,
+  showcases: scanModes.scanZone.showcases,
+  pokemon: scanModes.scanZone.pokemon,
+  gmf: scanModes.scanZone.gmf,
+}
+
+async function questScan(coords) {
+  log.info(TAGS.scanner, `Quest scan requested for ${coords.length} points`)
+  const base = questApi.endpoint.replace(/\/$/, '')
+  log.info(TAGS.scanner, 'Logging into external scanner API')
+  const login = await fetch(`${base}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: questApi.username, password: questApi.password }),
+  })
+  const cookie = login.headers.get('set-cookie')
+  if (!cookie) {
+    log.error(TAGS.scanner, 'Quest scan login failed')
+    return { status: 'error', message: 'scanner_error' }
   }
+  log.info(TAGS.scanner, 'Quest scan login successful')
+
+  log.info(TAGS.scanner, 'Creating temporary quest scan area')
+  const areaRes = await fetch(`${base}/api/areas/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({
+      enabled: true,
+      geofence: coords.map(([lat, lon]) => ({ lat, lon })),
+      pokemon_mode: { workers: 4, enable_scout: false, invasion: false },
+      enable_quests: true,
+      quest_mode: { workers: 4, hours: [1, 10] },
+      name: 'ReactMap temp area',
+    }),
+  })
+  const { id } = await areaRes.json()
+  if (!id) {
+    log.error(TAGS.scanner, 'Quest scan area creation failed')
+    return { status: 'error', message: 'scanner_error' }
+  }
+  log.info(TAGS.scanner, `Quest scan area created with id ${id}`)
+
+  const headers = { Cookie: cookie }
+  log.info(TAGS.scanner, `Recalculating route for area ${id}`)
+  await fetch(`${base}/api/recalculate/${id}/pokemon?bootstrap=true`, { headers })
+  await fetch(`${base}/api/areas/${id}/disable`, { headers })
+  await fetch(`${base}/api/areas/${id}/enable`, { headers })
+  await new Promise((resolve) => {
+    setTimeout(resolve, 45000)
+  })
+  log.info(TAGS.scanner, `Starting quest scan for area ${id}`)
+  await fetch(`${base}/api/recalculate/${id}/quest?bootstrap=false`, { headers })
+  await fetch(`${base}/api/quest/${id}/start`, { headers })
+
+  const statusBody = JSON.stringify({
+    fence: coords.map(([lat, lon]) => ({ lat, lon })),
+  })
+  /* eslint-disable no-await-in-loop */
+  for (let i = 0; i < 50; i++) {
+    await new Promise((resolve) => {
+      setTimeout(resolve, 3600)
+    })
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const statusRes = await fetch(`${base}/api/quest-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        body: statusBody,
+      })
+      // eslint-disable-next-line no-await-in-loop
+      const { ar_quests, total } = await statusRes.json()
+      if (ar_quests === total) break
+    } catch (e) {
+      log.error(TAGS.scanner, 'Error fetching quest status', e)
+    }
+  }
+  /* eslint-enable no-await-in-loop */
+  log.info(TAGS.scanner, `Deleting temporary area ${id}`)
+  await fetch(`${base}/api/areas/${id}`, {
+    method: 'DELETE',
+    headers,
+  })
+  log.info(TAGS.scanner, `Quest scan complete for area ${id}`)
+  return { status: 'ok', message: 'scanner_ok' }
+}
+
+async function runQuestQueue() {
+  if (questProcessing) return
+  questProcessing = true
+  while (questScanQueue.length) {
+    const { coords } = questScanQueue[0]
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await questScan(coords)
+    } catch (e) {
+      log.error(TAGS.scanner, 'Quest scan error', e)
+    }
+    questScanQueue.shift()
+  }
+  questProcessing = false
+}
 
   const controller = new AbortController()
 
@@ -48,16 +148,21 @@ async function scannerApi(
   }, config.getSafe('api.fetchTimeoutMs'))
 
   const coords =
-    backendConfig.platform === 'dragonite' ||
-    backendConfig.platform === 'custom'
-      ? data.scanCoords?.map((coord) => [
-          parseFloat(coord[0].toFixed(5)),
-          parseFloat(coord[1].toFixed(5)),
-        ]) || []
-      : data.scanCoords?.map((coord) => ({
-          lat: parseFloat(coord[0].toFixed(5)),
-          lon: parseFloat(coord[1].toFixed(5)),
-        })) || []
+    backendConfig.platform === 'mad'
+      ? [
+          parseFloat(data.scanCoords[0][0].toFixed(5)),
+          parseFloat(data.scanCoords[0][1].toFixed(5)),
+        ]
+      : backendConfig.platform === 'dragonite' ||
+          backendConfig.platform === 'custom'
+        ? data.scanCoords?.map((coord) => [
+            parseFloat(coord[0].toFixed(5)),
+            parseFloat(coord[1].toFixed(5)),
+          ]) || []
+        : data.scanCoords?.map((coord) => ({
+            lat: parseFloat(coord[0].toFixed(5)),
+            lon: parseFloat(coord[1].toFixed(5)),
+          })) || []
 
   try {
     const headers = Object.fromEntries(
@@ -67,6 +172,7 @@ async function scannerApi(
       ]),
     )
     switch (backendConfig.platform) {
+      case 'mad':
       case 'rdm':
         Object.assign(headers, {
           Authorization: `Basic ${Buffer.from(
@@ -104,6 +210,18 @@ async function scannerApi(
           )},${data.scanLocation[1].toFixed(5)}`,
         )
         switch (backendConfig.platform) {
+          case 'mad':
+            Object.assign(payloadObj, {
+              url: `${
+                backendConfig.apiEndpoint
+              }/send_gps?origin=${encodeURIComponent(
+                scanModes.scanNext.scanNextDevice,
+              )}&coords=${JSON.stringify(coords)}&sleeptime=${
+                scanModes.scanNext.scanNextSleeptime
+              }`,
+              options: { method, headers },
+            })
+            break
           case 'rdm':
             Object.assign(payloadObj, {
               url: `${
@@ -189,7 +307,49 @@ async function scannerApi(
             break
         }
         break
+      case 'scanQuest':
+        log.info(
+          TAGS.scanner,
+          `Quest scan triggered by ${user.username || 'a visitor'} (${coords.length} points)`,
+        )
+        state.stats.setScanHistory(user.id, coords.length)
+        questScanQueue.push({ coords })
+        if (backendConfig.sendTelegramMessage || backendConfig.sendDiscordMessage) {
+          const updatedCache = state.stats.getScanHistory(user.id)
+          const trimmed = coords
+            .filter((_c, i) => i < 25)
+            .map((c) => `${c[0]}, ${c[1]}`)
+            .join('\n')
+          await state.event.chatLog(
+            'scanQuest',
+            {
+              title: 'Quest Scan Request',
+              author: {
+                name: user.username,
+                icon_url: `https://cdn.discordapp.com/avatars/${user.discordId}/${user.avatar}.png`,
+              },
+              description: `<@${user.discordId}>\nCoordinates: ${coords.length}\n`,
+              fields: [
+                {
+                  name: `User History`,
+                  value: `Total Requests: ${updatedCache?.requests || 0}\nTotal Coordinates: ${updatedCache?.coordinates || 0}`,
+                  inline: true,
+                },
+                {
+                  name: `Coordinates (${coords.length})`,
+                  value: coords.length > 25 ? `${trimmed}\n...${coords.length - 25} more` : trimmed,
+                },
+              ],
+            },
+            user.rmStrategy,
+          )
+        }
+        runQuestQueue()
+        return { status: 'ok', message: 'scanner_ok' }
       case 'getQueue':
+        if (data.typeName === 'scanQuest') {
+          return { status: 'ok', message: questScanQueue.length }
+        }
         if (
           scannerQueue[data.typeName].timestamp >
           Date.now() - backendConfig.queueRefreshInterval * 1000
@@ -315,7 +475,11 @@ async function scannerApi(
             },
             {
               name: 'Instance',
-              value: `${''}\nName: ${
+              value: `${
+                backendConfig.platform === 'mad'
+                  ? `Device: ${scanModes.scanNext.scanNextDevice}`
+                  : ''
+              }\nName: ${
                 scanModes[category]?.[`${category}Instance`] || '-'
               }\nQueue: ${scannerQueue[category]?.queue || 0}`,
               inline: true,

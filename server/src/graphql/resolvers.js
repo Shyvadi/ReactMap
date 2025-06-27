@@ -8,6 +8,7 @@ const { S2LatLng, S2RegionCoverer, S2LatLngRect } = require('nodes2ts')
 const config = require('@rm/config')
 const { missing, readAndParseJson } = require('@rm/locales')
 
+const { log, TAGS } = require('@rm/logger')
 const { buildDefaultFilters } = require('../filters/builder/base')
 const { filterComponents } = require('../utils/filterComponents')
 const { validateSelectedWebhook } = require('../utils/validateSelectedWebhook')
@@ -111,7 +112,7 @@ const resolvers = {
       )
       return !!results.length
     },
-    /** @param {unknown} _ @param {{ mode: 'scanNext' | 'scanZone', points: [number, number][] }} args */
+    /** @param {unknown} _ @param {{ mode: 'scanNext' | 'scanZone' | 'scanQuest', points: [number, number][] }} args */
     checkValidScan: (_, { mode, points }, { perms }) =>
       getValidCoords(mode, points, perms),
     /** @param {unknown} _ @param {{ component: 'loginPage' | 'donationPage' | 'messageOfTheDay' }} args */
@@ -167,9 +168,13 @@ const resolvers = {
             : '',
         profileButton: !!(username && misc.enableFloatingProfileButton),
         scanZone:
-          scanner.scanZone.enabled && perms.scanner.includes('scanZone'),
+          scanner.backendConfig.platform !== 'mad' &&
+          scanner.scanZone.enabled &&
+          perms.scanner.includes('scanZone'),
         scanNext:
           scanner.scanNext.enabled && perms.scanner.includes('scanNext'),
+        scanQuest:
+          scanner.scanQuest.enabled && perms.scanner.includes('scanZone'),
         search: Object.entries(config.getSafe('api.searchable')).some(
           ([k, v]) => v && perms[k],
         ),
@@ -375,8 +380,9 @@ const resolvers = {
     },
     scannerConfig: (_, { mode }, { perms }) => {
       const scanner = config.getSafe('scanner')
+      const permName = mode === 'scanQuest' ? 'scanZone' : mode
 
-      if (perms.scanner?.includes(mode) && scanner[mode].enabled) {
+      if (perms.scanner?.includes(permName) && scanner[mode].enabled) {
         return mode === 'scanZone'
           ? {
               scannerType: scanner.backendConfig.platform,
@@ -391,7 +397,16 @@ const resolvers = {
               refreshQueue: scanner.backendConfig.queueRefreshInterval,
               enabled: scanner[mode].enabled,
             }
-          : {
+          : mode === 'scanQuest'
+            ? {
+                scannerType: scanner.backendConfig.platform,
+                showScanCount: false,
+                showScanQueue: true,
+                cooldown: scanner.scanQuest.userCooldownSeconds,
+                refreshQueue: scanner.backendConfig.queueRefreshInterval,
+                enabled: scanner[mode].enabled,
+              }
+            : {
               scannerType: scanner.backendConfig.platform,
               showScanCount: scanner.scanNext.showScanCount,
               showScanQueue: scanner.scanNext.showScanQueue,
@@ -611,18 +626,31 @@ const resolvers = {
       if (category === 'getQueue') {
         return scannerApi(category, method, data, req?.user)
       }
+      const permName = category === 'scanQuest' ? 'scanZone' : category
+      req.session.cooldowns ??= {}
       if (
-        perms?.scanner?.includes(category) &&
-        (!req.session.cooldown || req.session.cooldown < Date.now())
+        perms?.scanner?.includes(permName) &&
+        (!req.session.cooldowns[category] ||
+          req.session.cooldowns[category] < Date.now())
       ) {
         const validCoords = getValidCoords(category, data?.scanCoords, perms)
+        if (category === 'scanQuest') {
+          log.info(
+            TAGS.scanner,
+            `GraphQL quest scan request with ${validCoords.filter(Boolean).length} points`,
+          )
+        }
 
+        const baseCooldown = config.getSafe(
+          `scanner.${category}.userCooldownSeconds`,
+        )
         const cooldown =
-          config.getSafe(`scanner.${category}.userCooldownSeconds`) *
-            validCoords.filter(Boolean).length *
+          (category === 'scanQuest'
+            ? baseCooldown
+            : baseCooldown * validCoords.filter(Boolean).length) *
             1000 +
           Date.now()
-        req.session.cooldown = cooldown
+        req.session.cooldowns[category] = cooldown
         return scannerApi(
           category,
           method,

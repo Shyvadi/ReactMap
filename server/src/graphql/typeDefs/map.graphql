@@ -188,6 +188,7 @@ type FabButtons {
   profileButton: Boolean
   scanZone: Boolean
   scanNext: Boolean
+  scanQuest: Boolean
   webhooks: Boolean
   search: Boolean
 }

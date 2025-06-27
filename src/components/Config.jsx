@@ -98,8 +98,11 @@ export function Config({ children }) {
         },
       }
 
+      const cds = data.user.cooldowns || {}
       useScannerSessionStorage.setState((prev) => ({
-        cooldown: Math.max(prev.cooldown, data.user.cooldown || 0),
+        scanNext: Math.max(prev.scanNext || 0, cds.scanNext || 0),
+        scanZone: Math.max(prev.scanZone || 0, cds.scanZone || 0),
+        scanQuest: Math.max(prev.scanQuest || 0, cds.scanQuest || 0),
       }))
       useMemory.setState({
         auth: {

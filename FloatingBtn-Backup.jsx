@@ -16,7 +16,6 @@ import EuroSymbol from '@mui/icons-material/EuroSymbol'
 import Person from '@mui/icons-material/Person'
 import TrackChanges from '@mui/icons-material/TrackChanges'
 import BlurOn from '@mui/icons-material/BlurOn'
-import AssignmentTurnedIn from '@mui/icons-material/AssignmentTurnedIn'
 import Fab from '@mui/material/Fab'
 import { useQuery } from '@apollo/client'
 import { useTranslation } from 'react-i18next'
@@ -66,7 +65,6 @@ const DEFAULT = {
   profileButton: false,
   scanNext: false,
   scanZone: false,
-  scanQuest: false,
   webhooks: false,
   search: false,
 }
@@ -76,7 +74,6 @@ const handleClick = (name) => () => {
   switch (name) {
     case 'scanZoneMode':
     case 'scanNextMode':
-    case 'scanQuestMode':
       return useScanStore.setState((prev) => ({
         [name]: prev[name] === 'setLocation' ? '' : 'setLocation',
       }))
@@ -104,7 +101,6 @@ export function FloatingButtons() {
 
   const scanNextMode = useScanStore((s) => s.scanNextMode)
   const scanZoneMode = useScanStore((s) => s.scanZoneMode)
-  const scanQuestMode = useScanStore((s) => s.scanQuestMode)
 
   const ref = React.useRef(null)
 
@@ -120,8 +116,7 @@ export function FloatingButtons() {
 
   const fabSize = isMobile ? 'small' : 'large'
   const iconSize = isMobile ? 'small' : 'medium'
-  const disabled =
-    !!webhookMode || !!scanNextMode || !!scanZoneMode || !!scanQuestMode || !online
+  const disabled = !!webhookMode || !!scanNextMode || !!scanZoneMode || !online
 
   const handleNavBtn = React.useCallback(
     (/** @type {'zoomIn' | 'zoomOut' | 'locate'} */ name) => () => {
@@ -210,17 +205,6 @@ export function FloatingButtons() {
           disabled={!!webhookMode || !!scanNextMode || !online}
         >
           <BlurOn fontSize={iconSize} sx={{ color: 'white' }} />
-        </Fab>
-      )}
-      {fabButtons.scanQuest && (
-        <Fab
-          color={scanQuestMode === 'setLocation' ? 'primary' : 'secondary'}
-          size={fabSize}
-          onClick={handleClick('scanQuestMode')}
-          title={t('scan_quest')}
-          disabled={!!webhookMode || !!scanNextMode || !!scanZoneMode || !online}
-        >
-          <AssignmentTurnedIn fontSize={iconSize} sx={{ color: 'white' }} />
         </Fab>
       )}
       {!!DonorIcon && (

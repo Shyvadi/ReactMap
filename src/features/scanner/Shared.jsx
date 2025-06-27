@@ -67,7 +67,7 @@ export function ScanQueue() {
  */
 export function ScanConfirm({ mode }) {
   const { t } = useTranslation()
-  const cooldown = useScannerSessionStorage((s) => s.cooldown)
+  const cooldown = useScannerSessionStorage((s) => s[mode])
   const valid = useScanStore((s) => s.valid)
   const estimatedDelay = useScanStore((s) => s.estimatedDelay)
 

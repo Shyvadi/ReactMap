@@ -63,6 +63,7 @@ export function Container() {
       <DataView />
       <ScanOnDemand mode="scanNext" />
       <ScanOnDemand mode="scanZone" />
+      <ScanOnDemand mode="scanQuest" />
       <WebhookMarker />
       <WebhookAreaSelection />
       <Nav />

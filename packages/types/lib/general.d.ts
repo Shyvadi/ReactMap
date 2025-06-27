@@ -124,7 +124,7 @@ export interface RMSliderProps {
   handleChange: RMSliderHandleChange
 }
 
-export type ScanTypes = 'scanNext' | 'scanZone'
+export type ScanTypes = 'scanNext' | 'scanZone' | 'scanQuest'
 
 export interface ScanOnDemandData {
   typeName: ScanTypes

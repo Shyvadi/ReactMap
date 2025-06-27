@@ -11,10 +11,10 @@ const { drawer } = require('../ui/drawer')
  */
 function getServerSettings(req) {
   const user =
-    /** @type {import('@rm/types').ExpressUser & { loggedIn: boolean; cooldown: number }} */ ({
+    /** @type {import('@rm/types').ExpressUser & { loggedIn: boolean; cooldowns: Record<string, number> }} */ ({
       ...(req.user ? req.user : req.session),
       loggedIn: !!req.user,
-      cooldown: req.session?.cooldown || 0,
+      cooldowns: req.session?.cooldowns || {},
     })
 
   const { clientValues, clientMenus } = clientOptions(user.perms)

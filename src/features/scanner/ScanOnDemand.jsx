@@ -9,8 +9,10 @@ import { SCANNER_CONFIG, SCANNER_STATUS } from '@services/queries/scanner'
 
 import { ScanNext } from './scanNext'
 import { ScanZone } from './scanZone'
+import { ScanQuest } from './scanQuest'
 import { getScanNextCoords } from './scanNext/getCoords'
 import { getScanZoneCoords } from './scanZone/getCoords'
+import { getScanQuestCoords } from './scanQuest/getCoords'
 import { ConfigContext, DEFAULT } from './ContextProvider'
 import { useScanStore, useScannerSessionStorage } from './hooks/store'
 
@@ -18,7 +20,7 @@ const { setScanMode } = useScanStore.getState()
 
 /**
  *
- * @param {{ mode: 'scanNext' | 'scanZone' }} props
+ * @param {{ mode: 'scanNext' | 'scanZone' | 'scanQuest' }} props
  * @returns {JSX.Element}
  */
 function BaseScanOnDemand({ mode }) {
@@ -59,12 +61,24 @@ function BaseScanOnDemand({ mode }) {
   const demandScan = () => {
     const { scanCoords, validCoords, scanLocation, ...rest } =
       useScanStore.getState()
+    const baseCooldown = typeof config.cooldown === 'number' ? config.cooldown : 0
     const cooldown =
-      (typeof config.cooldown === 'number' ? config.cooldown : 0) *
-        validCoords.filter(Boolean).length *
+      (mode === 'scanQuest'
+        ? baseCooldown
+        : baseCooldown * validCoords.filter(Boolean).length) *
         1000 +
       Date.now()
-    useScannerSessionStorage.setState({ cooldown })
+    useScannerSessionStorage.setState((prev) => ({
+      ...prev,
+      [mode]: cooldown,
+    }))
+    if (mode === 'scanQuest') {
+      // eslint-disable-next-line no-console
+      console.log('[ScanQuest] sending coordinates', {
+        scanCoords: scanCoords.filter((_, i) => validCoords[i]),
+        scanLocation,
+      })
+    }
     setScanMode(`${mode}Mode`, 'loading')
     scan({
       variables: {
@@ -88,9 +102,15 @@ function BaseScanOnDemand({ mode }) {
 
   React.useEffect(() => {
     if (scannerError) {
+      // eslint-disable-next-line no-console
+      console.error('[ScanQuest] scanner error', scannerError)
       setScanMode(`${mode}Mode`, 'error')
     }
     if (scannerResponse) {
+      if (mode === 'scanQuest') {
+        // eslint-disable-next-line no-console
+        console.log('[ScanQuest] scanner response', scannerResponse)
+      }
       if (scannerResponse?.scanner?.status === 'ok') {
         setScanMode(`${mode}Mode`, 'confirmed')
       } else {
@@ -101,13 +121,17 @@ function BaseScanOnDemand({ mode }) {
 
   React.useEffect(() => {
     if (scannerQueueResponse?.scanner?.status === 'ok') {
+      if (mode === 'scanQuest') {
+        // eslint-disable-next-line no-console
+        console.log('[ScanQuest] queue size', scannerQueueResponse.scanner.message)
+      }
       useScanStore.setState({ queue: scannerQueueResponse.scanner.message })
     }
   }, [scannerQueueResponse])
 
   React.useEffect(() => {
-    const { scanNextMode, scanZoneMode } = useScanStore.getState()
-    if (scanNextMode === '' && scanZoneMode === '') {
+    const { scanNextMode, scanZoneMode, scanQuestMode } = useScanStore.getState()
+    if (scanNextMode === '' && scanZoneMode === '' && scanQuestMode === '') {
       useScanStore.setState({ scanLocation: location })
     }
   }, [location, scanMode])
@@ -124,6 +148,7 @@ function BaseScanOnDemand({ mode }) {
         next[`${mode}Mode`] &&
         ((!prev.scanNextMode && next.scanNextMode) ||
           (!prev.scanZoneMode && next.scanZoneMode) ||
+          (!prev.scanQuestMode && next.scanQuestMode) ||
           next.userRadius !== prev.userRadius ||
           next.userSpacing !== prev.userSpacing ||
           next.scanNextSize !== prev.scanNextSize ||
@@ -138,8 +163,14 @@ function BaseScanOnDemand({ mode }) {
                 next.userSpacing,
                 next.scanZoneSize,
               )
-            : getScanNextCoords(next.scanLocation, next.scanNextSize)
+            : mode === 'scanQuest'
+              ? getScanQuestCoords(next.scanLocation)
+              : getScanNextCoords(next.scanLocation, next.scanNextSize)
         useScanStore.setState({ scanCoords })
+        if (mode === 'scanQuest') {
+          // eslint-disable-next-line no-console
+          console.log('[ScanQuest] updated coords', scanCoords)
+        }
       }
     })
     return () => {
@@ -147,11 +178,17 @@ function BaseScanOnDemand({ mode }) {
     }
   }, [mode])
 
-  if (scanMode !== 'setLocation' || !config.scannerType) return null
+  if (scanMode !== 'setLocation') return null
 
   return (
     <ConfigContext.Provider value={config}>
-      {mode === 'scanNext' ? <ScanNext /> : <ScanZone />}
+      {mode === 'scanNext' ? (
+        <ScanNext />
+      ) : mode === 'scanZone' ? (
+        <ScanZone />
+      ) : (
+        <ScanQuest />
+      )}
     </ConfigContext.Provider>
   )
 }

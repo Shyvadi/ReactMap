@@ -5,6 +5,7 @@ import { Popup } from 'react-leaflet'
 import { useTranslation } from 'react-i18next'
 
 import { DividerWithMargin } from '@components/StyledDivider'
+import { useScanStore } from './hooks/store'
 
 import {
   InAllowedArea,
@@ -24,6 +25,11 @@ import { ConfigContext } from './ContextProvider'
 export function ScanOnDemandPopup({ children, mode }) {
   const { t } = useTranslation()
   const context = React.useContext(ConfigContext)
+  const queue = useScanStore((s) => s.queue)
+  const minutes = React.useMemo(() => {
+    if (mode !== 'scanQuest') return 0
+    return typeof queue === 'number' && queue > 0 ? queue * 3 : 3
+  }, [mode, queue])
 
   return (
     <Popup minWidth={90} maxWidth={200} autoPan={false}>
@@ -31,11 +37,16 @@ export function ScanOnDemandPopup({ children, mode }) {
         <StyledListItemText
           className="no-leaflet-margin"
           secondary={t(
-            mode === 'scanZone' ? 'scan_zone_choose' : 'scan_next_choose',
+            mode === 'scanZone'
+              ? 'scan_zone_choose'
+              : mode === 'scanQuest'
+                ? 'scan_quest_choose'
+                : 'scan_next_choose',
+            mode === 'scanQuest' ? { minutes } : undefined,
           )}
         />
         <DividerWithMargin />
-        {true && children}
+        {context.scannerType !== 'mad' && children}
         {context.showScanCount && <ScanRequests />}
         {context.showScanQueue && <ScanQueue />}
         <DividerWithMargin />

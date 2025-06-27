@@ -17,16 +17,18 @@ export function ScanDialog() {
   const { t } = useTranslation()
   const scanNext = useScanStore((s) => s.scanNextMode)
   const scanZone = useScanStore((s) => s.scanZoneMode)
+  const scanQuest = useScanStore((s) => s.scanQuestMode)
 
   const scanMode = React.useMemo(
-    () => scanNext || scanZone,
-    [scanNext, scanZone],
+    () => scanNext || scanZone || scanQuest,
+    [scanNext, scanZone, scanQuest],
   )
 
   const handleClose = React.useCallback(() => {
     if (scanNext) return setScanMode('scanNextMode')
     if (scanZone) return setScanMode('scanZoneMode')
-  }, [scanNext, scanZone])
+    if (scanQuest) return setScanMode('scanQuestMode')
+  }, [scanNext, scanZone, scanQuest])
 
   const footerOptions = React.useMemo(
     () =>
